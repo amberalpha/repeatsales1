@@ -140,15 +140,15 @@ f6 <- function() {
   pxmotpd <<- x2[0<(apply(abs(x2),1,sum)),]
 }
 
-#pxmors1 <- function(x=pxmosld[[1]],pxmodad,pxmotpd,period='month',pstrendt=data.table(area=names(pxmosld),pstren=100),quantilex=.9) {
+#populates y, x; adds dummy 'shrinkage' rows, trims residuals, applies k-fold cross-validation across pstren*10^pinc
 #' @export
-f7 <- function(period='month',pstren=100,quantilex=.9) {
+f7 <- function(quantilex=.9,pstren=100,pinc=-2:2) {
   x <-
     setkey(data.table(
       accrue(
         segd = pxlrsegrawd,
         period = period,
-        pdate = newperiods(d1 = pxlrsegrawd[, min(startdate)], d2 = pxlrsegrawd[, max(deed_date)], period = period)
+        pdate = newperiods(d1 = pxlrsegrawd[, min(startdate)], d2 = pxlrsegrawd[, max(deed_date)])
       ),
       keep.rownames = T
     ), rn)
@@ -160,29 +160,43 @@ f7 <- function(period='month',pstren=100,quantilex=.9) {
   jyx <- setdiff(names(yx),'id')
   jna <- setNames(sort(setdiff(jyx,'r')),paste0('a',seq_along(jyx[-1])))
   jra <- c('r',paste0('a',seq_along(jyx[-1])))
-  x4 <- as.formula(paste('r~',paste(names(jna),collapse='+'),'-1'))
-  setnames(x2,old=jna,new=names(jna))
+  x3 <- as.formula(paste('r~',paste(names(jna),collapse='+'),'-1'))
   setnames(yx,old=jna,new=names(jna))
-  x3 <- rbind(x2,yx)[,jra,with=F]
-  x5 <- biglm(data=x3,formula=x4)
-  x6 <- data.table(r=x3[,r],(x3[,r]-as.matrix(x3[,-1])%*%summary(x5)$mat[,'Coef',drop=F]))%>%
+  setnames(x2,old=jna,new=names(jna))
+  
+  x4 <- rbind(x2,yx)[,jra,with=F]
+  
+  x5 <- biglm(data=x4,formula=x3)
+  x6 <- data.table(r=x4[,r],(x4[,r]-as.matrix(x4[,-1])%*%summary(x5)$mat[,'Coef',drop=F]))%>%
     .[,.(r,.resid=Coef)]%>%
     .[-(1:nrow(pxmotpd))]%>%
     .[,signed.qtile:=rank(abs(.resid))/.N,sign(.resid)]
   iok <- x6[,which(signed.qtile<quantilex)]
-  idok <- yx[iok,id]
   x7 <- rbind(x2,yx[iok])[,jra,with=F]
-  x8 <- biglm(data=x7,formula=x4)
-  x9 <- data.table(summary(x8)$mat)%>%
+  
+  x8 <- biglm(data=x7,formula=x3) #solve trimmed data
+  
+  x9 <- data.table(pstren=pinc) %>% #test prior strength by x-val, returns sse(pstren*10^pinc)
+    .[,fxv(
+      yx=yx[iok,jra,with=F],
+      xshrink=x2[,jra,with=F],
+      frml=x3,
+      kxv=5,
+      pstren=as.numeric(unlist(.BY)))
+      ,by=pstren]
+
+  x10 <- data.table(summary(x8)$mat)%>%
     .[,date:=jyx[-1]]%>%
     .[,area:=pxlrsegrawd[1,rc]]
   rsq1 <- summary(x5)$rsq
   rsq2 <- summary(x8)$rsq
-  x10 <- cbind(yx[,.(id)][,area:=pxlrsegrawd[1,substr(rc,1,3)]],x6[,.(r,.resid,signed.qtile,pass=signed.qtile<quantilex)])
+  x11 <- cbind(yx[,.(id)][,area:=pxlrsegrawd[1,substr(rc,1,3)]],x6[,.(r,.resid,signed.qtile,pass=signed.qtile<quantilex)])
+  
   pxmorsd <<- list(
-    augment=x10,
-    tidy=x9,
-    glance=data.table(rsq1,rsq2,nsam1=nrow(yx),nsam2=length(iok),qtile=quantilex)
+    augment=x11,
+    tidy=x10,
+    glance=data.table(rsq1,rsq2,nsam1=nrow(yx),nsam2=length(iok),qtile=quantilex),
+    xval=x9
   )
 }
 
@@ -195,6 +209,23 @@ f8 <- function() {
 
 
 #-----------------------------------------------library
+
+#test prior strength with k-fold cross-validation
+#' @export
+fxv <- function(yx,xshrink,frml,kxv=5,pstren=0) {
+  x7 <- rbind(10^pstren*xshrink,yx)
+  i1 <- 1:nrow(yx)
+  insse <- outsse <- 0*NA
+  for(k in 1:kxv) {
+    iin <- which((i1%%kxv+1)!=k)+nrow(xshrink) #excluding k
+    iout <- which((i1%%kxv+1)==k)+nrow(xshrink) #kth
+    i3 <- c(1:nrow(xshrink),iin) #for estimation
+    x7r <- biglm(data=x7[i3],formula=frml)
+    outsse[k] <- sum((ho=x7[iout,r]-(as.matrix(x7[iout,-1])%*%summary(x7r)$mat[,'Coef',drop=F]))**2)
+    insse[k] <- sum((ho=x7[iin,r]-(as.matrix(x7[iin,-1])%*%summary(x7r)$mat[,'Coef',drop=F]))**2)
+  }
+  data.table(insample=sum(insse)/(kxv-1),outsample=sum(outsse))
+}
 
 #' @export
 accrue <- function(pdate = newperiods(...),
