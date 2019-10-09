@@ -142,7 +142,7 @@ f6 <- function() {
 
 #populates y, x; adds dummy 'shrinkage' rows, trims residuals, applies k-fold cross-validation across pstren*10^pinc
 #' @export
-f7 <- function(quantilex=.9,pstren=100,pinc=c(-10,0,4)) {
+f7 <- function(quantilex=.9,pstren=100,pinc=c(-10,0,2)) {
   x <-
     setkey(data.table(
       accrue(
