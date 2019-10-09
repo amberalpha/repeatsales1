@@ -7,14 +7,14 @@ output: html_document
 #install_github('amberalpha/repeatsales1')
 library(repeatsales1) 
 if(F) {
-	f1('HA')
+	f1('SM')
 	f2()
 	f3()
 	f4()
 	f5()
 	f6()
 	f7()
-	save.image(file='HA.RData') #28MB
+	#save.image(file='HA.RData') #28MB
 } else {
 	load('../HA.RData')
 }
