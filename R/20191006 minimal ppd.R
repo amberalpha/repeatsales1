@@ -3,7 +3,7 @@
 
 
 #' @export
-f1 <- function(pcx='SW',n0=5,fnam="C:\\Users\\Giles\\AppData\\Local\\aabb\\aappd\\lr\\pp-complete.csv") {
+f1 <- function(pcx='NW',n0=5,fnam="C:\\Users\\Giles\\AppData\\Local\\aabb\\aappd\\lr\\pp-complete.csv") {
   j <- c('unique_id', 'price_paid', 'deed_date', 'postcode', 'property_type',
          'new_build', 'estate_type', 'saon', 'paon', 'street', 'locality',
          'town', 'district')
@@ -142,7 +142,7 @@ f6 <- function() {
 
 #populates y, x; adds dummy 'shrinkage' rows, trims residuals, applies k-fold cross-validation across pstren*10^pinc
 #' @export
-f7 <- function(quantilex=.9,pstren=100,pinc=-2:2) {
+f7 <- function(quantilex=.9,pstren=100,pinc=c(-10,0,4)) {
   x <-
     setkey(data.table(
       accrue(
@@ -172,9 +172,10 @@ f7 <- function(quantilex=.9,pstren=100,pinc=-2:2) {
     .[-(1:nrow(pxmotpd))]%>%
     .[,signed.qtile:=rank(abs(.resid))/.N,sign(.resid)]
   iok <- x6[,which(signed.qtile<quantilex)]
-  x7 <- rbind(x2,yx[iok])[,jra,with=F]
   
-  x8 <- biglm(data=x7,formula=x3) #solve trimmed data
+  x8 <- biglm(data=rbind(x2,yx[iok])[,jra,with=F],formula=x3) #solve trimmed data
+  x8lo <- biglm(data=rbind(x2[,jra,with=F]*10^min(pinc),yx[iok,jra,with=F]),formula=x3) #solve low shrink
+  x8hi <- biglm(data=rbind(x2[,jra,with=F]*10^max(pinc),yx[iok,jra,with=F]),formula=x3) #solve high shrink
   
   x9 <- data.table(pstren=pinc) %>% #test prior strength by x-val, returns sse(pstren*10^pinc)
     .[,fxv(
@@ -184,10 +185,11 @@ f7 <- function(quantilex=.9,pstren=100,pinc=-2:2) {
       kxv=5,
       pstren=as.numeric(unlist(.BY)))
       ,by=pstren]
-
   x10 <- data.table(summary(x8)$mat)%>%
     .[,date:=jyx[-1]]%>%
-    .[,area:=pxlrsegrawd[1,rc]]
+    .[,area:=pxlrsegrawd[1,rc]]%>%
+    .[,hishrink:=summary(x8hi)$mat[,'Coef']]%>% #cheeky add of extreme solutions
+    .[,loshrink:=summary(x8lo)$mat[,'Coef']]
   rsq1 <- summary(x5)$rsq
   rsq2 <- summary(x8)$rsq
   x11 <- cbind(yx[,.(id)][,area:=pxlrsegrawd[1,substr(rc,1,3)]],x6[,.(r,.resid,signed.qtile,pass=signed.qtile<quantilex)])
@@ -203,10 +205,18 @@ f7 <- function(quantilex=.9,pstren=100,pinc=-2:2) {
 #display
 #' @export
 f8 <- function() {
-  x1 <- pxmorsd$tidy[,.(date=as.Date(date),ret=Coef*365.25/12)][,idx:=cumsum(ret)]
-  ggplot(x1,aes(date,idx))+geom_line()+ylab('cumulative log return')+xlab('')+ggtitle(pxmorsd$augment[1,regpcode(substr(area,1,3))])
+  x1 <- pxmorsd$tidy[,.(date=as.Date(date),tuned=Coef*365.25/12,low.shrink=loshrink*365.25/12,high.shrink=hishrink*365.25/12)]
+  x2 <- melt(x1,id.vars='date')[,y:=cumsum(value),variable]
+  ggplot(x2,aes(date,y,color=variable))+
+    geom_line()+
+    ylab('cumulative log return')+
+    xlab('')+
+    ggtitle(paste0('Area postcode: ',pxmorsd$augment[1,irregpcode(substr(area,1,3))])) +
+    theme(legend.position=c(.99,.12),legend.justification='right',legend.title = element_blank())+
+    labs(caption='Land Registry | Anest')+
+    theme(panel.background = element_rect(fill = "#EEF8FF"))
 }
-
+f8()
 
 #-----------------------------------------------library
 
