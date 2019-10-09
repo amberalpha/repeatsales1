@@ -15,5 +15,6 @@ Depends:
     biglm,
 		magrittr,
 		ggplot2,
-		lubridate
-RoxygenNote: 6.1.1 
+		lubridate,
+		plotly
+RoxygenNote: 6.1.1

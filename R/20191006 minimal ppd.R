@@ -202,12 +202,12 @@ f7 <- function(quantilex=.9,pstren=100,pinc=c(-10,0,2)) {
   )
 }
 
-#display
+#display - ggplot
 #' @export
 f8 <- function() {
   x1 <- pxmorsd$tidy[,.(date=as.Date(date),tuned=Coef*365.25/12,low.shrink=loshrink*365.25/12,high.shrink=hishrink*365.25/12)]
   x2 <- melt(x1,id.vars='date')[,y:=cumsum(value),variable]
-  ggplot(x2,aes(date,y,color=variable))+
+  g1 <- ggplot(x2,aes(date,y,color=variable))+
     geom_line()+
     ylab('cumulative log return')+
     xlab('')+
@@ -215,6 +215,39 @@ f8 <- function() {
     theme(legend.position=c(.99,.12),legend.justification='right',legend.title = element_blank())+
     labs(caption='Land Registry | Anest')+
     theme(panel.background = element_rect(fill = "#EEF8FF"))
+  # ggplotly(g1)
+  g1
+}
+
+#display - ggplotly
+#' @export
+f9 <- function() {
+  x1 <- pxmorsd$tidy[,.(date=as.Date(date),tuned=Coef*365.25/12,low.shrink=loshrink*365.25/12,high.shrink=hishrink*365.25/12)]
+  x2 <- melt(x1,id.vars='date')[,y:=cumsum(value),variable]
+  x3 <- data.table(a=c('low.shrink','tuned','high.shrink'),n=1:3)[x2,on=c(a='variable')][,xx:=reorder(a,n)][,.(shrink=xx,date,y)]
+  g1 <- ggplot(x3,aes(date,y,frame=shrink))+
+    geom_line()+
+    ylab('cumulative log return')+
+    xlab('')+
+    ggtitle(paste0('Area postcode: ',pxmorsd$augment[1,irregpcode(substr(area,1,3))])) +
+    theme(legend.position=c(.99,.12),legend.justification='right',legend.title = element_blank())+
+    labs(caption='Land Registry | Anest')+
+    theme(panel.background = element_rect(fill = "#EEF8FF"))
+  ggplotly(g1)
+}
+
+#' @export
+f10 <- function() {
+  x1 <- melt(copy(pxmorsd$xval)[,pstren:=0:2],id.var='pstren')
+  g1 <- ggplot(x1,aes(pstren,value,color=variable)) +
+    geom_line()+
+    geom_point()+
+    ylab('sum square error')+
+    xlab('shrinkage prior strength -->') +
+    theme(legend.position=c(.99,.12),legend.justification='right',legend.title = element_blank())+
+    labs(caption='Land Registry | Anest')+
+    theme(panel.background = element_rect(fill = "#EEF8FF"))
+  ggplotly(g1)
 }
 
 #-----------------------------------------------library
