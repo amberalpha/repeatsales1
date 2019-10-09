@@ -216,7 +216,6 @@ f8 <- function() {
     labs(caption='Land Registry | Anest')+
     theme(panel.background = element_rect(fill = "#EEF8FF"))
 }
-f8()
 
 #-----------------------------------------------library
 
