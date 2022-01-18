@@ -1,13 +1,11 @@
-library(pxmo)
 library(devtools)
-install_github('amberalpha/repeatsales1')
+#install_github('amberalpha/repeatsales1')
 library(repeatsales1) 
-source('./r/20220118 minimal ppd.r')
 
 if(F) { #setuo
   setv(ver=116)
   x1 <- pxpaths()$pxlr1
-  x2 <- fread(x1)#[V11=='ST. ALBANS']
+  x2 <- fread(x1)
   x3 <- x2[substr(V4,1,2)=='AL']
   x3a <- x2[substr(V4,1,2)=='SM']
   fwrite(x3,file='c:/temp/ppd/pp-AL-.csv')
@@ -42,10 +40,9 @@ x3 <- x1[,.(idtr,r)][x2,on=c(idtr='idtr')]%>%
   .[['coefficients']]%>%
   data.table(.,keep.rownames=T) %>%
   .[-1,.(year=as.numeric(substr(rn,2,5))+.5,x=Estimate-min(Estimate))]
-  
+
 ggplot(x3,aes(year,x))+
   geom_point()+
   geom_line()+
-  xlab('')
-
-
+  xlab('')+
+  ylab('cumulative log return index')
