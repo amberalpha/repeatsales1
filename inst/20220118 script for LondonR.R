@@ -1,4 +1,4 @@
-library(devtools)
+#library(devtools)
 #install_github('amberalpha/repeatsales1')
 library(repeatsales1) 
 
@@ -25,7 +25,7 @@ x1 <- f4d[,.(idtr,buy=format(startdate,'Y%Y'),sell=format(deed_date,'Y%Y'),r)]%>
   .[sell>buy]
 
 x2 <- CJ(x1[,idtr],paste0('Y',1995:2021))%>%
-  setnames(c('idtr','year'))%>%
+  setnames(.,c('idtr','year'))%>%
   .[,.(idtr,year,dummy=0)]%>%
   rbind(.,x1[,.(idtr,year=buy,dummy=-1)])%>%
   .[,.(dummy=min(dummy)),.(idtr,year)]%>%
@@ -38,11 +38,18 @@ x3 <- x1[,.(idtr,r)][x2,on=c(idtr='idtr')]%>%
   lm(r~.-1,.)%>%
   summary(.)%>%
   .[['coefficients']]%>%
-  data.table(.,keep.rownames=T) %>%
-  .[-1,.(year=as.numeric(substr(rn,2,5))+.5,x=Estimate-min(Estimate))]
+  data.table(.,keep.rownames=T)%>%
+  setnames(.,c('rn','est','se','tval','pval'))%>%
+  .[,est:=est-min(est)]%>%
+  .[,.(rn,x=est,xmin=est-se,xmax=est+se)]%>%
+  .[-1,.(year=as.numeric(substr(rn,2,5))+.5,x,xmin,xmax)]
 
-ggplot(x3,aes(year,x))+
-  geom_point()+
-  geom_line()+
+ggplot(x3,aes(year,x,ymin=xmin, ymax=xmax))+
+  geom_line(linetype="dotted")+
+  geom_errorbar(width=.2)+
   xlab('')+
-  ylab('cumulative log return index')
+  ylab('cumulative log return index')+
+  labs(
+    title="standard repeat sales index estimated in levels",
+    subtitle = "(1) dates are not properly defined (2) regression without intercept, standard errors need care")
+
